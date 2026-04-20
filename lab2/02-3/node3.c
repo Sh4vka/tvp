@@ -6,36 +6,36 @@
 #define NO 0
 
 int main() {
-    int prep = open("prepare1", O_RDONLY);
-    int vote = open("vote1", O_WRONLY);
-    int decision = open("decision1", O_RDONLY);
+    int prep = open("prepare3", O_RDONLY);
+    int vote = open("vote3", O_WRONLY);
+    int decision = open("decision3", O_RDONLY);
 
     for (int i = 0; i < 3; i++) {
 
         int req;
         read(prep, &req, 1);
 
-        printf("Node1: prepare received\n");
+        printf("Node3: prepare received\n");
 
         int can_lock = 1; // имитация проверки A & B
 
         if (can_lock) {
-            printf("Node1: VOTE YES\n");
+            printf("Node3: VOTE YES\n");
             write(vote, &(int){YES}, 1);
         } else {
-            printf("Node1: VOTE NO\n");
+            printf("Node3: VOTE NO\n");
             write(vote, &(int){NO}, 1);
         }
 
         int d;
         read(decision, &d, 1);
 
-        printf("Node1: decision = %d\n", d);
+        printf("Node3: decision = %d\n", d);
 
         if (d == NO) {
-            printf("Node1: rollback\n");
+            printf("Node3: rollback\n");
         } else {
-            printf("Node1: commit\n");
+            printf("Node3: commit\n");
         }
     }
 

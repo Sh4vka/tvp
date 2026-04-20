@@ -3,7 +3,7 @@
 #include <stdlib.h>
 
 #define TEST 2
-#define INFO 1
+#define INFO 0
 
 int main() {
     int val = 200;
