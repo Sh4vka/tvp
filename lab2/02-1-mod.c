@@ -58,5 +58,22 @@ int main() {
     if (close(fd) < 0) {
         printf("Can't close file\n");
     }
+
+    /***************************************************/
+    fd = open("myfile", O_RDONLY);
+    if (fd == -1) exit(-1);
+
+    char buff[14];
+    size = read(fd, buff, sizeof(buff));
+    if (size != 14) {
+        printf("Can't read all string");
+        exit(-1);
+    }
+    else {printf("%s\n", buff);}
+
+    if (close(fd) < 0) {
+        printf("Can't close file\n");
+    }
+
     return 0;
 }
