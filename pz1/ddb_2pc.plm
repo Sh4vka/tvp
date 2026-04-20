@@ -1,253 +1,153 @@
-#define VOTE_YES 1
-#define VOTE_NO  0
-#define PREPARE  1
-#define COMMIT   2
-#define ABORT    3
+/* 2PC с несколькими итерациями */
 
-chan coordinator_to_node1 = [0] of {byte, byte};
-chan coordinator_to_node2 = [0] of {byte, byte};
-chan coordinator_to_node3 = [0] of {byte, byte};
+#define YES 1
+#define NO  0
+#define N   3   // число транзакций
 
-chan node1_to_coordinator = [0] of {byte, byte};
-chan node2_to_coordinator = [0] of {byte, byte};
-chan node3_to_coordinator = [0] of {byte, byte};
+byte A = 1;
+byte B = 1;
+byte C = 1;
 
-bool A_locked = false;
-bool B_locked = false;
-bool C_locked = false;
+chan prepare_req[3] = [0] of { byte };
+chan vote[3]        = [0] of { byte };
+chan decision[3]    = [0] of { byte };
 
-proctype TwoPC_Coordinator_T1() {
-    byte vote1, vote2;
-    
-    printf("2PC Coordinator T1: starting transaction (needs A and B)\n");
-    
-    printf("2PC Coordinator T1: PHASE 1 - Sending PREPARE to Node1 and Node2\n");
-    coordinator_to_node1!PREPARE, 1;
-    coordinator_to_node2!PREPARE, 1;
-    
-    printf("2PC Coordinator T1: Waiting for votes\n");
-    node1_to_coordinator?vote1, 1;
-    node2_to_coordinator?vote2, 1;
-    
-    printf("T1: Node1 voted %d, Node2 voted %d\n", vote1, vote2);
-    
-    if
-    :: (vote1 == VOTE_YES && vote2 == VOTE_YES) ->
-        printf("2PC Coordinator T1: PHASE 2 - Both voted YES, sending COMMIT\n");
-        coordinator_to_node1!COMMIT, 1;
-        coordinator_to_node2!COMMIT, 1;
-        printf("2PC Coordinator T1: Transaction COMMITTED\n");
-        
-    :: else ->
-        printf("2PC Coordinator T1: PHASE 2 - Vote failed, sending ABORT\n");
-        coordinator_to_node1!ABORT, 1;
-        coordinator_to_node2!ABORT, 1;
-        printf("2PC Coordinator T1: Transaction ABORTED\n");
-    fi
-}
+/* ---------- Node1 ---------- */
+proctype Node1() {
+    byte i = 0;
+    byte v;
 
-proctype TwoPC_Coordinator_T2() {
-    byte vote2, vote3;
-    
-    printf("2PC Coordinator T2: starting transaction (needs B and C)\n");
-    
-    printf("2PC Coordinator T2: PHASE 1 - Sending PREPARE to Node2 and Node3\n");
-    coordinator_to_node2!PREPARE, 2;
-    coordinator_to_node3!PREPARE, 2;
-    
-    printf("2PC Coordinator T2: Waiting for votes\n");
-    node2_to_coordinator?vote2, 2;
-    node3_to_coordinator?vote3, 2;
-    
-    printf("T2: Node2 voted %d, Node3 voted %d\n", vote2, vote3);
-    
-    if
-    :: (vote2 == VOTE_YES && vote3 == VOTE_YES) ->
-        printf("2PC Coordinator T2: PHASE 2 - Both voted YES, sending COMMIT\n");
-        coordinator_to_node2!COMMIT, 2;
-        coordinator_to_node3!COMMIT, 2;
-        printf("2PC Coordinator T2: Transaction COMMITTED\n");
-        
-    :: else ->
-        printf("2PC Coordinator T2: PHASE 2 - Vote failed, sending ABORT\n");
-        coordinator_to_node2!ABORT, 2;
-        coordinator_to_node3!ABORT, 2;
-        printf("2PC Coordinator T2: Transaction ABORTED\n");
-    fi
-}
-
-proctype TwoPC_Coordinator_T3() {
-    byte vote3, vote1;
-    
-    printf("2PC Coordinator T3: starting transaction (needs C and A)\n");
-    
-    printf("2PC Coordinator T3: PHASE 1 - Sending PREPARE to Node3 and Node1\n");
-    coordinator_to_node3!PREPARE, 3;
-    coordinator_to_node1!PREPARE, 3;
-    
-    printf("2PC Coordinator T3: Waiting for votes\n");
-    node3_to_coordinator?vote3, 3;
-    node1_to_coordinator?vote1, 3;
-    
-    printf("T3: Node3 voted %d, Node1 voted %d\n", vote3, vote1);
-    
-    if
-    :: (vote3 == VOTE_YES && vote1 == VOTE_YES) ->
-        printf("2PC Coordinator T3: PHASE 2 - Both voted YES, sending COMMIT\n");
-        coordinator_to_node3!COMMIT, 3;
-        coordinator_to_node1!COMMIT, 3;
-        printf("2PC Coordinator T3: Transaction COMMITTED\n");
-        
-    :: else ->
-        printf("2PC Coordinator T3: PHASE 2 - Vote failed, sending ABORT\n");
-        coordinator_to_node3!ABORT, 3;
-        coordinator_to_node1!ABORT, 3;
-        printf("2PC Coordinator T3: Transaction ABORTED\n");
-    fi
-}
-
-proctype Participant_Node1() {
-    byte msg, tid;
-    byte prepared_for = 0;
-    
-    printf("Node1: Participant ready for 2PC\n");
-    
     do
-    :: coordinator_to_node1?msg, tid ->
-        
+    :: i < N ->
+        prepare_req[0]?1;
+
         if
-        :: msg == PREPARE ->
-            printf("Node1: Received PREPARE from T%d\n", tid);
-            
-            if
-            :: A_locked == false ->
-                A_locked = true;
-                prepared_for = tid;
-                printf("Node1: Voting YES for T%d (A is free)\n", tid);
-                node1_to_coordinator!VOTE_YES, tid;
-                
-            :: else ->
-                printf("Node1: Voting NO for T%d (A is locked)\n", tid);
-                node1_to_coordinator!VOTE_NO, tid;
-            fi
-            
-        :: msg == COMMIT ->
-            printf("Node1: Received COMMIT from T%d\n", tid);
-            if
-            :: prepared_for == tid ->
-                printf("Node1: Committing transaction T%d\n", tid);
-                prepared_for = 0;
-            fi
-            
-        :: msg == ABORT ->
-            printf("Node1: Received ABORT from T%d\n", tid);
-            if
-            :: prepared_for == tid ->
-                printf("Node1: Aborting transaction T%d, releasing lock A\n", tid);
-                A_locked = false;
-                prepared_for = 0;
-            fi
-        fi
+        :: (A == 1 && B == 1) ->
+            A = 0; B = 0;
+            vote[0]!YES
+        :: else ->
+            vote[0]!NO
+        fi;
+
+        decision[0]?v;
+
+        /* освобождение */
+        if
+        :: A == 0 -> A = 1
+        :: else -> skip
+        fi;
+        if
+        :: B == 0 -> B = 1
+        :: else -> skip
+        fi;
+
+        i++
+    :: else -> break
     od
 }
 
-proctype Participant_Node2() {
-    byte msg, tid;
-    byte prepared_for = 0;
-    
-    printf("Node2: Participant ready for 2PC\n");
-    
+/* ---------- Node2 ---------- */
+proctype Node2() {
+    byte i = 0;
+    byte v;
+
     do
-    :: coordinator_to_node2?msg, tid ->
-        
+    :: i < N ->
+        prepare_req[1]?1;
+
         if
-        :: msg == PREPARE ->
-            printf("Node2: Received PREPARE from T%d\n", tid);
-            
-            if
-            :: B_locked == false ->
-                B_locked = true;
-                prepared_for = tid;
-                printf("Node2: Voting YES for T%d (B is free)\n", tid);
-                node2_to_coordinator!VOTE_YES, tid;
-                
-            :: else ->
-                printf("Node2: Voting NO for T%d (B is locked)\n", tid);
-                node2_to_coordinator!VOTE_NO, tid;
-            fi
-            
-        :: msg == COMMIT ->
-            printf("Node2: Received COMMIT from T%d\n", tid);
-            if
-            :: prepared_for == tid ->
-                printf("Node2: Committing transaction T%d\n", tid);
-                prepared_for = 0;
-            fi
-            
-        :: msg == ABORT ->
-            printf("Node2: Received ABORT from T%d\n", tid);
-            if
-            :: prepared_for == tid ->
-                printf("Node2: Aborting transaction T%d, releasing lock B\n", tid);
-                B_locked = false;
-                prepared_for = 0;
-            fi
-        fi
+        :: (B == 1 && C == 1) ->
+            B = 0; C = 0;
+            vote[1]!YES
+        :: else ->
+            vote[1]!NO
+        fi;
+
+        decision[1]?v;
+
+        if
+        :: B == 0 -> B = 1
+        :: else -> skip
+        fi;
+        if
+        :: C == 0 -> C = 1
+        :: else -> skip
+        fi;
+
+        i++
+    :: else -> break
     od
 }
 
-proctype Participant_Node3() {
-    byte msg, tid;
-    byte prepared_for = 0;
-    
-    printf("Node3: Participant ready for 2PC\n");
-    
+/* ---------- Node3 ---------- */
+proctype Node3() {
+    byte i = 0;
+    byte v;
+
     do
-    :: coordinator_to_node3?msg, tid ->
-        
+    :: i < N ->
+        prepare_req[2]?1;
+
         if
-        :: msg == PREPARE ->
-            printf("Node3: Received PREPARE from T%d\n", tid);
-            
-            if
-            :: C_locked == false ->
-                C_locked = true;
-                prepared_for = tid;
-                printf("Node3: Voting YES for T%d (C is free)\n", tid);
-                node3_to_coordinator!VOTE_YES, tid;
-                
-            :: else ->
-                printf("Node3: Voting NO for T%d (C is locked)\n", tid);
-                node3_to_coordinator!VOTE_NO, tid;
-            fi
-            
-        :: msg == COMMIT ->
-            printf("Node3: Received COMMIT from T%d\n", tid);
-            if
-            :: prepared_for == tid ->
-                printf("Node3: Committing transaction T%d\n", tid);
-                prepared_for = 0;
-            fi
-            
-        :: msg == ABORT ->
-            printf("Node3: Received ABORT from T%d\n", tid);
-            if
-            :: prepared_for == tid ->
-                printf("Node3: Aborting transaction T%d, releasing lock C\n", tid);
-                C_locked = false;
-                prepared_for = 0;
-            fi
-        fi
+        :: (C == 1 && A == 1) ->
+            C = 0; A = 0;
+            vote[2]!YES
+        :: else ->
+            vote[2]!NO
+        fi;
+
+        decision[2]?v;
+
+        if
+        :: C == 0 -> C = 1
+        :: else -> skip
+        fi;
+        if
+        :: A == 0 -> A = 1
+        :: else -> skip
+        fi;
+
+        i++
+    :: else -> break
+    od
+}
+
+/* ---------- Coordinator ---------- */
+proctype Coordinator() {
+    byte i = 0;
+    byte v1, v2, v3;
+
+    do
+    :: i < N ->
+        printf("Transaction %d\n", i);
+
+        prepare_req[0]!1;
+        prepare_req[1]!1;
+        prepare_req[2]!1;
+
+        vote[0]?v1;
+        vote[1]?v2;
+        vote[2]?v3;
+
+        if
+        :: (v1 == YES && v2 == YES && v3 == YES) ->
+            decision[0]!YES;
+            decision[1]!YES;
+            decision[2]!YES;
+        :: else ->
+            decision[0]!NO;
+            decision[1]!NO;
+            decision[2]!NO;
+        fi;
+
+        i++
+    :: else -> break
     od
 }
 
 init {
-    atomic {
-        run Participant_Node1();
-        run Participant_Node2();
-        run Participant_Node3();
-        run TwoPC_Coordinator_T1();
-        run TwoPC_Coordinator_T2();
-        run TwoPC_Coordinator_T3();
-    }
+    run Coordinator();
+    run Node1();
+    run Node2();
+    run Node3();
 }

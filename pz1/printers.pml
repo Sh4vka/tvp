@@ -1,44 +1,42 @@
-bool printer_busy = false;  
+byte printer_busy = 0;
 
 proctype Task1() {
-    printf("Task1: starting\n");
-    
+    printf("Task1: checking printer\n");
+
     if
-    :: printer_busy == false ->
+    :: (printer_busy == 0) ->
         printf("Task1: printer is free, taking it\n");
-        printer_busy = true;
-        printf("Task1: printing... (critical section)\n");
-        printf("Task1: printing... (simulated work)\n");
-        printer_busy = false;
-        printf("Task1: printer released\n");
+        printer_busy = 1;
+
+        printf("Task1: printing...\n");
+
+        printf("Task1: releasing printer\n");
+        printer_busy = 0;
     :: else ->
-        printf("Task1: printer busy, waiting\n");
+        printf("Task1: printer busy\n");
     fi
-    
-    printf("Task1: finished\n");
 }
 
 proctype Task2() {
-    printf("Task2: starting\n");
-    
+    printf("Task2: checking printer\n");
+
     if
-    :: printer_busy == false ->
+    :: (printer_busy == 0) ->
         printf("Task2: printer is free, taking it\n");
-        printer_busy = true;
-        printf("Task2: printing... (critical section)\n");
-        printf("Task2: printing... (simulated work)\n");
-        printer_busy = false;
-        printf("Task2: printer released\n");
+        printer_busy = 1;
+
+        printf("Task2: printing...\n");
+
+        printf("Task2: releasing printer\n");
+        printer_busy = 0;
     :: else ->
-        printf("Task2: printer busy, waiting\n");
+        printf("Task2: printer busy\n");
     fi
-    
-    printf("Task2: finished\n");
 }
 
 init {
     atomic {
-        run Task1();
-        run Task2();
+    run Task1();
+    run Task2();
     }
 }

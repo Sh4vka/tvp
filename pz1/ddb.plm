@@ -1,147 +1,51 @@
-#define NODE1 1
-#define NODE2 2
-#define NODE3 3
+byte A = 1; 
+byte B = 1;
+byte C = 1;
 
-chan lock_request_A_N1 = [0] of {byte};  
-chan lock_request_B_N2 = [0] of {byte}; 
-chan lock_request_C_N3 = [0] of {byte};
+proctype Node1() {
+    printf("Node1: lock A\n");
+    A = 0;
 
-chan lock_granted = [0] of {byte, byte}; 
+    printf("Node1: trying to lock B\n");
+    (B == 1);
+    B = 0;
 
-bool A_locked = false;
-bool B_locked = false;
-bool C_locked = false;
+    printf("Node1: working\n");
 
-proctype Transaction_T1() {
-    printf("T1: starting transaction\n");
-    
-    printf("T1: requesting lock on A (Node1)\n");
-    lock_request_A_N1!1;
-    lock_granted?1, 1;
-    printf("T1: got lock on A\n");
-    
-    printf("T1: requesting lock on B (Node2)\n");
-    lock_request_B_N2!1;
-    lock_granted?1, 2;
-    printf("T1: got lock on B\n");
-    
-    printf("T1: performing transaction...\n");
-    printf("T1: transaction committed\n");
-    
-    A_locked = false;
-    B_locked = false;
-    printf("T1: locks released\n");
+    B = 1;
+    A = 1;
 }
 
-proctype Transaction_T2() {
-    printf("T2: starting transaction\n");
-    
-    printf("T2: requesting lock on B (Node2)\n");
-    lock_request_B_N2!2;
-    lock_granted?2, 2; 
-    printf("T2: got lock on B\n");
-    
-    printf("T2: requesting lock on C (Node3)\n");
-    lock_request_C_N3!2;
-    lock_granted?2, 3;  
-    printf("T2: got lock on C\n");
-    
-    printf("T2: performing transaction...\n");
-    printf("T2: transaction committed\n");
-    
-    B_locked = false;
-    C_locked = false;
-    printf("T2: locks released\n");
+proctype Node2() {
+    printf("Node2: lock B\n");
+    B = 0;
+
+    printf("Node2: trying to lock C\n");
+    (C == 1);
+    C = 0;
+
+    printf("Node2: working\n");
+
+    C = 1;
+    B = 1;
 }
 
-proctype Transaction_T3() {
-    printf("T3: starting transaction\n");
-    
-    printf("T3: requesting lock on C (Node3)\n");
-    lock_request_C_N3!3;
-    lock_granted?3, 3;  
-    printf("T3: got lock on C\n");
-    
-    printf("T3: requesting lock on A (Node1)\n");
-    lock_request_A_N1!3;
-    lock_granted?3, 1;  
-    printf("T3: got lock on A\n");
-    
-    printf("T3: performing transaction...\n");
-    printf("T3: transaction committed\n");
-    
-    C_locked = false;
-    A_locked = false;
-    printf("T3: locks released\n");
-}
+proctype Node3() {
+    printf("Node3: lock C\n");
+    C = 0;
 
-proctype LockManager_Node1() {
-    byte tid;
-    
-    printf("Node1 Lock Manager: starting\n");
-    
-    do
-    :: lock_request_A_N1?tid ->
-        printf("Node1: lock request for A from T%d\n", tid);
-        if
-        :: A_locked == false ->
-            A_locked = true;
-            printf("Node1: granting lock A to T%d\n", tid);
-            lock_granted!tid, 1;
-        :: else ->
-            printf("Node1: A already locked, T%d must wait\n", tid);
-            lock_request_A_N1?tid;
-        fi
-    od
-}
+    printf("Node3: trying to lock A\n");
+    (A == 1);
+    A = 0;
 
-proctype LockManager_Node2() {
-    byte tid;
-    
-    printf("Node2 Lock Manager: starting\n");
-    
-    do
-    :: lock_request_B_N2?tid ->
-        printf("Node2: lock request for B from T%d\n", tid);
-        if
-        :: B_locked == false ->
-            B_locked = true;
-            printf("Node2: granting lock B to T%d\n", tid);
-            lock_granted!tid, 2;
-        :: else ->
-            printf("Node2: B already locked, T%d must wait\n", tid);
-            lock_request_B_N2?tid;
-        fi
-    od
-}
+    printf("Node3: working\n");
 
-proctype LockManager_Node3() {
-    byte tid;
-    
-    printf("Node3 Lock Manager: starting\n");
-    
-    do
-    :: lock_request_C_N3?tid ->
-        printf("Node3: lock request for C from T%d\n", tid);
-        if
-        :: C_locked == false ->
-            C_locked = true;
-            printf("Node3: granting lock C to T%d\n", tid);
-            lock_granted!tid, 3;
-        :: else ->
-            printf("Node3: C already locked, T%d must wait\n", tid);
-            lock_request_C_N3?tid;
-        fi
-    od
+    A = 1;
+    C = 1;
 }
 
 init {
-    atomic {
-        run LockManager_Node1();
-        run LockManager_Node2();
-        run LockManager_Node3();
-        run Transaction_T1();
-        run Transaction_T2();
-        run Transaction_T3();
-    }
+    run Node1();
+    run Node2();
+    run Node3();
 }
